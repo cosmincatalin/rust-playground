@@ -1,0 +1,14 @@
+{
+    "name": "Rust Playground",
+    "dockerComposeFile": "docker-compose.yml",
+    "service": "dev",
+    "workspaceFolder": "/workspace",
+    "extensions": [
+        "editorconfig.editorconfig",
+        "streetsidesoftware.code-spell-checker",
+        "sonarsource.sonarlint-vscode",
+        "cschleiden.vscode-github-actions",
+        "mutantdino.resourcemonitor",
+        "devescalus.git-commit-no-verify-action-button"
+    ]
+}
