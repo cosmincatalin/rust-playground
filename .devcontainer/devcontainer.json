@@ -3,9 +3,6 @@
     "dockerComposeFile": "docker-compose.yml",
     "service": "dev",
     "workspaceFolder": "/workspace",
-    "remoteEnv": {
-        "AWS_ACCESS_KEY_ID": "${RP_AWS_ACCESS_KEY_ID}"
-    },
     "customizations": {
         "vscode": {
             "extensions": [
