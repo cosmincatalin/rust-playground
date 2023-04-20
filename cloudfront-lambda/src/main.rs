@@ -1,6 +1,6 @@
 use std::{fs::File, io::Write, path::PathBuf, process::exit};
 use std::ops::Deref;
-
+use deltalake::*;
 use aws_config::meta::credentials::CredentialsProviderChain;
 use aws_config::meta::region::RegionProviderChain;
 use aws_lambda_events::event::s3::S3Event;
@@ -43,8 +43,19 @@ async fn handler(
         let archive = GzDecoder::new(compressed_reader);
         let mut reader_actual = BufReader::new(archive);
 
-        let mut line = String::new();
+        let table_path = Path::from("this_table");
+        let maybe_table = deltalake::open_table(&table_path).await;
+        let mut table = match maybe_table {
+            Ok(table) => table,
+            Err(DeltaTableError::NotATable(_)) => {
+                println!("It doesn't look like our delta table has been created");
+                // https://github.com/delta-io/delta-rs/blob/main/rust/examples/recordbatch-writer.rs
+                create_initialized_table(&table_path).await
+            }
+            Err(err) => Err(err).unwrap(),
+        };
 
+        let mut line = String::new();
         while reader_actual.read_line(&mut line).unwrap() != 0 {
             println!("{line}");
             line.clear();
@@ -69,4 +80,33 @@ async fn main() -> Result<(), Error> {
     run(service_fn(|event: LambdaEvent<S3Event>| {
         handler(&s3_client, event)
     })).await
+}
+
+
+async fn create_initialized_table(table_path: &Path) -> DeltaTable {
+    let mut table = DeltaTableBuilder::from_uri(table_path).build().unwrap();
+    let table_schema = WeatherRecord::schema();
+    let mut commit_info = serde_json::Map::<String, serde_json::Value>::new();
+    commit_info.insert(
+        "operation".to_string(),
+        serde_json::Value::String("CREATE TABLE".to_string()),
+    );
+    commit_info.insert(
+        "userName".to_string(),
+        serde_json::Value::String("test user".to_string()),
+    );
+
+    let protocol = Protocol {
+        min_reader_version: 1,
+        min_writer_version: 1,
+    };
+
+    let metadata = DeltaTableMetaData::new(None, None, None, table_schema, vec![], HashMap::new());
+
+    table
+        .create(metadata, protocol, Some(commit_info), None)
+        .await
+        .unwrap();
+
+    table
 }
