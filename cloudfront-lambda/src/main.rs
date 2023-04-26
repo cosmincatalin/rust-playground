@@ -1,10 +1,9 @@
-use std::{fs::File, io::Write, path::PathBuf, process::exit};
-use std::ops::Deref;
+use chrono::prelude::*;
+use deltalake::action::Protocol;
+use std::{fs::File, io::Write, collections::HashMap};
+
 use deltalake::*;
-use aws_config::meta::credentials::CredentialsProviderChain;
-use aws_config::meta::region::RegionProviderChain;
 use aws_lambda_events::event::s3::S3Event;
-use aws_sdk_s3::Client;
 use lambda_runtime::{Error, LambdaEvent, run, service_fn};
 use tracing::log::trace;
 
@@ -34,7 +33,7 @@ async fn handler(
         let mut byte_count = 0_usize;
         while let Some(bytes) = object.body.try_next().await? {
             let bytes = file.write(&bytes)?;
-            byte_count += bytes;
+            // byte_count += bytes;
             trace!("Intermediate write of {bytes}");
         }
 
@@ -45,7 +44,7 @@ async fn handler(
 
         let table_path = Path::from("this_table");
         let maybe_table = deltalake::open_table(&table_path).await;
-        let mut table = match maybe_table {
+        let table = match maybe_table {
             Ok(table) => table,
             Err(DeltaTableError::NotATable(_)) => {
                 println!("It doesn't look like our delta table has been created");
@@ -74,7 +73,7 @@ async fn main() -> Result<(), Error> {
         .without_time()
         .init();
 
-    let config = aws_config::from_env().profile_name("cosmin-old-style").load().await;
+    let config = aws_config::from_env().load().await;
     let s3_client = aws_sdk_s3::Client::new(&config);
 
     run(service_fn(|event: LambdaEvent<S3Event>| {
@@ -109,4 +108,45 @@ async fn create_initialized_table(table_path: &Path) -> DeltaTable {
         .unwrap();
 
     table
+}
+
+// Creating a simple type alias for improved readability
+type Fahrenheit = i32;
+
+struct WeatherRecord {
+    timestamp: DateTime<Utc>,
+    temp: Fahrenheit,
+    lat: f64,
+    long: f64,
+}
+
+impl WeatherRecord {
+    fn schema() -> Schema {
+        Schema::new(vec![
+            SchemaField::new(
+                "timestamp".to_string(),
+                SchemaDataType::primitive("timestamp".to_string()),
+                true,
+                HashMap::new(),
+            ),
+            SchemaField::new(
+                "temp".to_string(),
+                SchemaDataType::primitive("integer".to_string()),
+                true,
+                HashMap::new(),
+            ),
+            SchemaField::new(
+                "lat".to_string(),
+                SchemaDataType::primitive("double".to_string()),
+                true,
+                HashMap::new(),
+            ),
+            SchemaField::new(
+                "long".to_string(),
+                SchemaDataType::primitive("double".to_string()),
+                true,
+                HashMap::new(),
+            ),
+        ])
+    }
 }
