@@ -13,7 +13,8 @@
                 "devescalus.git-commit-no-verify-action-button",
                 "rust-lang.rust-analyzer",
                 "bungcip.better-toml",
-                "amazonwebservices.aws-toolkit-vscode"
+                "amazonwebservices.aws-toolkit-vscode",
+                "vadimcn.vscode-lldb"
             ]
         }
     }
